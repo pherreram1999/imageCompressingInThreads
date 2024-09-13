@@ -1,8 +1,8 @@
+#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/dir.h>
-#include <pthread.h>
 #include <string.h>
 
 #define NUM_THREADS 4
@@ -12,6 +12,8 @@ typedef struct {
     int  len;
     char** paths;
 } ImagesResponse;
+
+
 
 int image_filter(const struct dirent *entry) {
     // Obtener la extensión del archivo
@@ -43,7 +45,7 @@ void get_images(const char *path, ImagesResponse *response) {
 
 
     for(i = 0; i < response->len; i++){
-        char currentWord[250];
+        char currentWord[500];
         struct dirent *entry = files[i];
         switch (entry->d_type) {
             case DT_REG:
@@ -70,13 +72,48 @@ void get_images(const char *path, ImagesResponse *response) {
 
 }
 
-int main(){
+void chunk_images(ImagesResponse *images,int chunkSize,char ****chunks) {
+    int imageIndex = 0;
+    for(int j = 0; j < NUM_THREADS; j++) {
+        for(int i = 0; i < chunkSize; i++) {
+            if(imageIndex > images->len) return;
+            strcpy((*chunks)[j][i], images->paths[imageIndex]);
+            imageIndex++;
+        }
+    }
 
+}
+
+
+int main(int argc, char **argv){
     ImagesResponse response;
     get_images("/home/sistemas/Imágenes",&response);
-    for(int i = 0; i < response.len; i++) {
-        printf("%s",response.paths[i]);
+    // creamos un arreglo bidemesionasl para los chunks y dividirlos en hilos
+    int chunkSize = ceil((double) (response.len) / (double) (NUM_THREADS));
+
+    printf("NUM THREADS %d\n",NUM_THREADS);
+    printf("images len %d\n",response.len);
+    printf("chunkSize %d\n",chunkSize);
+
+    char ***chunks = malloc(NUM_THREADS * sizeof(char*));
+
+    for(int k = 0; k < NUM_THREADS; k++) {
+        chunks[k] = malloc(chunkSize * sizeof(char*));
+        for(int i = 0; i < chunkSize; i++) {
+            chunks[k][i] = malloc(256 * sizeof(char));
+        }
     }
+    chunk_images(&response,chunkSize,&chunks);
+
+    for(int k = 0; k < NUM_THREADS; k++) {
+
+        chunks[k] = malloc(chunkSize * sizeof(char*));
+
+        for(int i = 0; i < chunkSize; i++) {
+            printf("string %s\n", chunks[k][i]);
+        }
+    }
+
 
     return 0;
 }
