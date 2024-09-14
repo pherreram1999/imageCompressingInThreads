@@ -72,16 +72,15 @@ void get_images(const char *path, ImagesResponse *response) {
 
 }
 
-void chunk_images(ImagesResponse *images,int chunkSize,char ****chunks) {
+void chunk_images(const ImagesResponse *images, const int chunkSize,const int numChunks,char ****chunks) {
     int imageIndex = 0;
-    for(int j = 0; j < NUM_THREADS; j++) {
+    for(int j = 0; j < numChunks; j++) {
         for(int i = 0; i < chunkSize; i++) {
             if(imageIndex > images->len) return;
             strcpy((*chunks)[j][i], images->paths[imageIndex]);
             imageIndex++;
         }
     }
-
 }
 
 
@@ -90,30 +89,28 @@ int main(int argc, char **argv){
     get_images("/home/sistemas/Imágenes",&response);
     // creamos un arreglo bidemesionasl para los chunks y dividirlos en hilos
     int chunkSize = ceil((double) (response.len) / (double) (NUM_THREADS));
-
+    int numChunks = ceil((double) response.len / (double) chunkSize);
     printf("NUM THREADS %d\n",NUM_THREADS);
+    printf("num chunks %d\n",numChunks);
     printf("images len %d\n",response.len);
     printf("chunkSize %d\n",chunkSize);
 
-    char ***chunks = malloc(NUM_THREADS * sizeof(char*));
+    char ***chunks = malloc(numChunks * sizeof(char**));
 
-    for(int k = 0; k < NUM_THREADS; k++) {
+    for(int k = 0; k < numChunks; k++) {
         chunks[k] = malloc(chunkSize * sizeof(char*));
         for(int i = 0; i < chunkSize; i++) {
             chunks[k][i] = malloc(256 * sizeof(char));
         }
     }
-    chunk_images(&response,chunkSize,&chunks);
 
-    for(int k = 0; k < NUM_THREADS; k++) {
+    chunk_images(&response,chunkSize,numChunks,&chunks);
 
-        chunks[k] = malloc(chunkSize * sizeof(char*));
-
+    for(int k = 0; k < numChunks; k++) {
         for(int i = 0; i < chunkSize; i++) {
-            printf("string %s\n", chunks[k][i]);
+            printf("string k => %d  i=>:%d | %s\n", k,i,chunks[k][i]);
         }
     }
-
 
     return 0;
 }
