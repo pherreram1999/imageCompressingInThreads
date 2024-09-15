@@ -6,12 +6,14 @@
 #include <string.h>
 #include <dirent.h>
 #include <pthread.h>
-#include <vips/vips.h>
+#include <wand/MagickWand.h>
+
 #define NUM_THREADS 4
 
 typedef struct {
     int  len;
     char** paths;
+    char * dest;
 } ImagesResponse;
 
 
@@ -130,9 +132,27 @@ void chunk_images(const ImagesResponse *response,const int chunk_size,const int 
 void *image_processing(void * response) {
     const ImagesResponse *data = (ImagesResponse*)response;
     for(int i = 0; i < data->len; i++) {
-        VipsImage *image = vips_image_new_from_file(data->paths[i],"access",VIPS_ACCESS_SEQUENTIAL);
-        if(!image) vips_error_exit("Error creating VIPS image");
-        g_object_unref(image);
+        MagickWand *wand = NewMagickWand();
+
+        printf("processing image: %s\n",data->paths[i]);
+        if(MagickReadImage(wand,data->paths[i]) == MagickFalse) {
+            perror("MagickReadImage error");
+            return NULL;
+        }
+
+        if(MagickSetCompressionQuality(wand,.4) == MagickFalse) {
+            perror("MagickSetCompressionQuality error");
+            return NULL;
+        }
+
+
+        if(MagickWriteImage(wand,data->paths[i]) == MagickFalse) {}
+
+
+        DestroyMagickWand(wand);
+
+        printf("end process image: %s\n",data->paths[i]);
+
     }
 
 }
@@ -140,13 +160,12 @@ void *image_processing(void * response) {
 
 
 int main(int argc, char **argv){
-    // inciamos la libreria manupulacion de imagenes livbips
-    // que carga todas las dependencias
-    if (VIPS_INIT("ict")) vips_error_exit("Cannot init vips");
 
+    const char * pathOrigen = "/home/sistemas/Imágenes";
+    const char * pathDest = "/home/Documentos/Comprimidos";
 
     ImagesResponse response;
-    get_images("/home/sistemas/Imágenes",&response);
+    get_images(pathOrigen,&response);
     // creamos un arreglo bidemesionasl para los chunks y dividirlos en hilos
     const int chunkSize = ceil((double) (response.len) / (double) (NUM_THREADS));
     const int numChunks = ceil((double) response.len / (double) chunkSize);
@@ -164,6 +183,8 @@ int main(int argc, char **argv){
     pthread_t threads[numChunks];
 
     for(int k = 0; k < numChunks; k++) {
+        chunks[k]->dest = malloc(strlen(pathDest) * sizeof(char));
+        strcpy(chunks[k]->dest,pathDest);
         pthread_create(&threads[k], NULL, image_processing, (void *)chunks[k]);
     }
 
