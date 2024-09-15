@@ -6,7 +6,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <pthread.h>
-
+#include <vips/vips.h>
 #define NUM_THREADS 4
 
 typedef struct {
