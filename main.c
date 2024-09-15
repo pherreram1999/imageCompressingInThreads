@@ -122,7 +122,9 @@ void chunk_images(const ImagesResponse *response,const int chunk_size,const int 
 
 void *image_processing(void * response) {
     ImagesResponse *data = (ImagesResponse*)response;
-
+    for(int i = 0; i < data->len; i++) {
+        printf("%s ",data->paths[i]);
+    }
 }
 
 
@@ -159,7 +161,7 @@ int main(int argc, char **argv){
     pthread_t threads[numChunks];
 
     for(int k = 0; k < numChunks; k++) {
-        pthread_create(&threads[k], NULL, image_processing, (void *)&chunks[k]);
+        pthread_create(&threads[k], NULL, image_processing, (void *)yachunks[k]);
     }
 
     // esperamos los threads
