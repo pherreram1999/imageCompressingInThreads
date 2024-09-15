@@ -127,7 +127,9 @@ void *image_processing(void * response) {
 }
 
 
+
 int main(int argc, char **argv){
+
     ImagesResponse response;
     get_images("/home/sistemas/Descargas",&response);
     // creamos un arreglo bidemesionasl para los chunks y dividirlos en hilos
