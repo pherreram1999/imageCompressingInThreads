@@ -7,6 +7,7 @@
 #include <dirent.h>
 #include <pthread.h>
 #include <wand/MagickWand.h>
+#include <libgen.h>
 
 #define NUM_THREADS 4
 
@@ -132,6 +133,12 @@ void chunk_images(const ImagesResponse *response,const int chunk_size,const int 
 void *image_processing(void * response) {
     const ImagesResponse *data = (ImagesResponse*)response;
     for(int i = 0; i < data->len; i++) {
+
+        char * path_copy = strdup(data->paths[i]);
+        char *base = basename(path_copy);
+        char * fullpath = malloc((strlen(data->dest) + strlen(base) + 1) * sizeof(char));
+        sprintf(fullpath,"%s/%s",data->dest,base);
+
         MagickWand *wand = NewMagickWand();
 
         printf("processing image: %s\n",data->paths[i]);
@@ -140,19 +147,24 @@ void *image_processing(void * response) {
             return NULL;
         }
 
-        if(MagickSetCompressionQuality(wand,.4) == MagickFalse) {
+        if(MagickSetCompressionQuality(wand,.25) == MagickFalse) {
             perror("MagickSetCompressionQuality error");
             return NULL;
         }
 
 
-        if(MagickWriteImage(wand,data->paths[i]) == MagickFalse) {}
+        if(MagickWriteImage(wand,fullpath) == MagickFalse) {
+            perror("MagickWriteImage error");
+            return NULL;
+        }
 
 
         DestroyMagickWand(wand);
 
-        printf("end process image: %s\n",data->paths[i]);
-
+        printf("end process image: %s\n",fullpath);
+        /*free(fullpath);
+        free(path_copy);
+        free(base);*/
     }
 
 }
@@ -162,7 +174,7 @@ void *image_processing(void * response) {
 int main(int argc, char **argv){
 
     const char * pathOrigen = "/home/sistemas/Imágenes";
-    const char * pathDest = "/home/Documentos/Comprimidos";
+    const char * pathDest = "/home/sistemas/Documentos/Comprimidos";
 
     ImagesResponse response;
     get_images(pathOrigen,&response);
