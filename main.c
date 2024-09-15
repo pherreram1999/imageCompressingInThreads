@@ -9,19 +9,17 @@
 
 #define NUM_THREADS 4
 
-
 typedef struct {
     int  len;
     char** paths;
 } ImagesResponse;
 
-typedef struct {
-    int len;
-    char** paths;
-} ImageTheadData;
 
-
-
+/**
+ * Filtra solo aquellas que son imagenes
+ * @param entry entrada del scan
+ * @return devuelve codigo de error
+ */
 int image_filter(const struct dirent *entry) {
     // Obtener la extensión del archivo
     const char *ext = strrchr(entry->d_name, '.');
@@ -34,6 +32,11 @@ int image_filter(const struct dirent *entry) {
     return 0;  // Excluir este archivo
 }
 
+/**
+ *
+ * @param path donde se encuentran las images
+ * @param response estructura que contiene los paths y su longitud
+ */
 void get_images(const char *path, ImagesResponse *response) {
     int i = 0;
     struct dirent **files;
@@ -79,25 +82,16 @@ void get_images(const char *path, ImagesResponse *response) {
 
 }
 
-/*void chunk_images(const ImagesResponse *images, const int chunkSize,const int numChunks,char ****chunks) {
-    int imageIndex = 0;
-    for(int j = 0; j < numChunks; j++) {
-        for(int i = 0; i < chunkSize; i++) {
-            if(imageIndex >= images->len) {
-                // si no tenemos mas, liberamos los lotes restantes
-                free((*chunks)[j][i]);
-                continue;
-            }
-            strcpy((*chunks)[j][i], images->paths[imageIndex]);
-            imageIndex++;
-        }
-    }
-}*/
 
+/**
+ * Separa la ImagesResponse de todas las imagenes en chunks
+ * @param response response de todas las imagenes
+ * @param chunk_size longitud de cada chunk
+ * @param chunk_num numero de chunks
+ * @param chunks arreglo de response donde se va guardar las separaciones
+ */
 void chunk_images(const ImagesResponse *response,const int chunk_size,const int chunk_num,ImagesResponse ***chunks) {
     int index = 0;
-
-
     for(int i = 0; i < chunk_num; i++) {
         // cada response lo instancia en memoria
         (*chunks)[i] = malloc(sizeof(ImagesResponse));
@@ -120,6 +114,11 @@ void chunk_images(const ImagesResponse *response,const int chunk_size,const int 
 
 }
 
+/**
+ * rutina que comprime las imagenes en paralelo
+ * @param response Chunk response de las imagenes a procesar en paralelo
+ * @return
+ */
 void *image_processing(void * response) {
     ImagesResponse *data = (ImagesResponse*)response;
     for(int i = 0; i < data->len; i++) {
@@ -144,24 +143,11 @@ int main(int argc, char **argv){
     ImagesResponse **chunks = malloc(numChunks * sizeof(ImagesResponse*));
     chunk_images(&response,chunkSize,numChunks,&chunks);
 
-
-
-    /*int index = 0;
-    for(int i = 0; i < numChunks; i++) {
-        const ImagesResponse *r = chunks[i];
-
-        for(int j = 0; j < r->len; j++) {
-            printf("%d %s ",index,r->paths[j]);
-            index++;
-        }
-    }
-    */
-
     // creamos los hilos
     pthread_t threads[numChunks];
 
     for(int k = 0; k < numChunks; k++) {
-        pthread_create(&threads[k], NULL, image_processing, (void *)yachunks[k]);
+        pthread_create(&threads[k], NULL, image_processing, (void *)chunks[k]);
     }
 
     // esperamos los threads
