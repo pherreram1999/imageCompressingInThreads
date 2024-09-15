@@ -26,7 +26,7 @@ int image_filter(const struct dirent *entry) {
 
     // Verificar si la extensión corresponde a una imagen
     if (ext && (strcmp(ext, ".jpg") == 0 || strcmp(ext, ".png") == 0 ||
-                strcmp(ext, ".jpeg") == 0 || strcmp(ext, ".bmp") == 0)) {
+                strcmp(ext, ".jpeg") == 0)) {
         return 1;  // Incluir este archivo
                 }
     return 0;  // Excluir este archivo
@@ -59,24 +59,30 @@ void get_images(const char *path, ImagesResponse *response) {
         struct dirent *entry = files[i];
         switch (entry->d_type) {
             case DT_REG:
-                sprintf(currentWord,"%s\n", entry->d_name);
+                sprintf(currentWord,"%s", entry->d_name);
             break;
 
             case DT_DIR:
-                sprintf(currentWord,"%s/\n", entry->d_name);
+                sprintf(currentWord,"%s/", entry->d_name);
             break;
 
             case DT_LNK:
-                sprintf(currentWord,"%s@\n", entry->d_name);
+                sprintf(currentWord,"%s@", entry->d_name);
             break;
 
             default:
-                sprintf(currentWord,"%s*\n", entry->d_name);
+                sprintf(currentWord,"%s*", entry->d_name);
         }
         // reservamos el espacio de la cadena
         // sobre el puntero de string se reserva la memoria para el string
-        response->paths[i] = malloc(strlen(currentWord) + 1);
-        strcpy(response->paths[i], currentWord); // se copia el string
+        response->paths[i] = malloc((strlen(currentWord) + strlen(path)) * sizeof(char));
+        sprintf(response->paths[i],"%s/%s", path,currentWord);
+        // nos aseguramos que string tenga bien colado el caracter nulo para su longitud
+        /*int indexJump = strcspn(response->paths[i],"\n");
+        if (indexJump != strlen(response->paths[i])) {
+            response->paths[i][indexJump] = '\0';
+        }*/
+
         free(entry);
     }
 
@@ -114,24 +120,33 @@ void chunk_images(const ImagesResponse *response,const int chunk_size,const int 
 
 }
 
+
+
 /**
  * rutina que comprime las imagenes en paralelo
  * @param response Chunk response de las imagenes a procesar en paralelo
  * @return
  */
 void *image_processing(void * response) {
-    ImagesResponse *data = (ImagesResponse*)response;
+    const ImagesResponse *data = (ImagesResponse*)response;
     for(int i = 0; i < data->len; i++) {
-        printf("%s ",data->paths[i]);
+        VipsImage *image = vips_image_new_from_file(data->paths[i],"access",VIPS_ACCESS_SEQUENTIAL);
+        if(!image) vips_error_exit("Error creating VIPS image");
+        g_object_unref(image);
     }
+
 }
 
 
 
 int main(int argc, char **argv){
+    // inciamos la libreria manupulacion de imagenes livbips
+    // que carga todas las dependencias
+    if (VIPS_INIT("ict")) vips_error_exit("Cannot init vips");
+
 
     ImagesResponse response;
-    get_images("/home/sistemas/Descargas",&response);
+    get_images("/home/sistemas/Imágenes",&response);
     // creamos un arreglo bidemesionasl para los chunks y dividirlos en hilos
     const int chunkSize = ceil((double) (response.len) / (double) (NUM_THREADS));
     const int numChunks = ceil((double) response.len / (double) chunkSize);
