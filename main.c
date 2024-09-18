@@ -173,13 +173,10 @@ void *image_processing(void * response) {
 
         if(MagickWriteImage(wand,fullpath) == MagickFalse) {
             perror("MagickWriteImage error");
-            return NULL;
         }
 
 
         DestroyMagickWand(wand);
-
-
 
     }
 
