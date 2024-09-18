@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <wand/MagickWand.h>
 #include <libgen.h>
+#include <unistd.h>
 
 #define NUM_THREADS 4
 
@@ -85,7 +86,6 @@ void get_images(const char *path, ImagesResponse *response) {
         if (indexJump != strlen(response->paths[i])) {
             response->paths[i][indexJump] = '\0';
         }*/
-
         free(entry);
     }
 
@@ -120,7 +120,6 @@ void chunk_images(const ImagesResponse *response,const int chunk_size,const int 
             index++;
         }
     }
-
 }
 
 
@@ -133,7 +132,6 @@ void chunk_images(const ImagesResponse *response,const int chunk_size,const int 
 void *image_processing(void * response) {
     const ImagesResponse *data = (ImagesResponse*)response;
     for(int i = 0; i < data->len; i++) {
-
         char * path_copy = strdup(data->paths[i]);
         char *base = basename(path_copy);
         char * fullpath = malloc((strlen(data->dest) + strlen(base) + 1) * sizeof(char));
@@ -141,13 +139,33 @@ void *image_processing(void * response) {
 
         MagickWand *wand = NewMagickWand();
 
-        printf("processing image: %s\n",data->paths[i]);
+        if(access(data->paths[i],F_OK) != 0) {
+            printf("No found image: %s\n",data->paths[i]);
+            return NULL;
+        }
+
+        printf("*\timage: %s\n",data->paths[i]);
+
         if(MagickReadImage(wand,data->paths[i]) == MagickFalse) {
             perror("MagickReadImage error");
             return NULL;
         }
 
-        if(MagickSetCompressionQuality(wand,.25) == MagickFalse) {
+        size_t originalHeight = MagickGetImageHeight(wand);
+        size_t originalWith = MagickGetImageWidth(wand);
+        size_t width = 150;
+
+        double aspectRatio = (double) originalHeight / (double) originalWith;
+
+        size_t newHeight = (size_t)(width * aspectRatio +0.5);
+
+
+        if(MagickResizeImage(wand,width,newHeight,LanczosFilter,1) == MagickFalse) {
+            printf("Error resizing image\n");
+            return NULL;
+        }
+
+        if(MagickSetCompressionQuality(wand,100) == MagickFalse) {
             perror("MagickSetCompressionQuality error");
             return NULL;
         }
@@ -161,10 +179,8 @@ void *image_processing(void * response) {
 
         DestroyMagickWand(wand);
 
-        printf("end process image: %s\n",fullpath);
-        /*free(fullpath);
-        free(path_copy);
-        free(base);*/
+
+
     }
 
 }
@@ -175,6 +191,8 @@ int main(int argc, char **argv){
 
     const char * pathOrigen = "/home/sistemas/Imágenes";
     const char * pathDest = "/home/sistemas/Documentos/Comprimidos";
+
+    MagickWandGenesis();
 
     ImagesResponse response;
     get_images(pathOrigen,&response);
